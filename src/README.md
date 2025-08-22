@@ -28,7 +28,6 @@ decisions to perform deeper investigations of specific S3 buckets and objects. Y
 statistics, and other data by using the Amazon Macie console or the Amazon Macie API. You can also leverage Macie
 integration with Amazon EventBridge and AWS Security Hub to monitor, process, and remediate findings by using other
 services, applications, and systems.
-
 ## Usage
 
 **Stack Level**: Regional
@@ -122,7 +121,10 @@ atmos terraform apply macie/org-settings/ue1 -s core-ue1-security
 ```
 
 <!-- prettier-ignore-start -->
-<!-- BEGINNING OF PRE-COMMIT-TERRAFORM DOCS HOOK -->
+<!-- prettier-ignore-end -->
+
+
+<!-- markdownlint-disable -->
 ## Requirements
 
 | Name | Version |
@@ -197,12 +199,19 @@ atmos terraform apply macie/org-settings/ue1 -s core-ue1-security
 | <a name="output_macie_account_id"></a> [macie\_account\_id](#output\_macie\_account\_id) | The ID of the Macie account created by the component |
 | <a name="output_macie_service_role_arn"></a> [macie\_service\_role\_arn](#output\_macie\_service\_role\_arn) | The Amazon Resource Name (ARN) of the service-linked role that allows Macie to monitor and analyze data in AWS resources for the account. |
 | <a name="output_member_account_ids"></a> [member\_account\_ids](#output\_member\_account\_ids) | The AWS Account IDs of the member accounts |
-<!-- END OF PRE-COMMIT-TERRAFORM DOCS HOOK -->
-<!-- prettier-ignore-end -->
+<!-- markdownlint-restore -->
+
+
 
 ## References
 
-- [AWS GuardDuty Documentation](https://aws.amazon.com/guardduty/)
-- [Cloud Posse's upstream component](https://github.com/cloudposse/terraform-aws-components/tree/main/modules/guardduty/common/)
+
+- [AWS GuardDuty Documentation](https://aws.amazon.com/guardduty/) - 
+
+- [Cloud Posse's upstream component](https://github.com/cloudposse/terraform-aws-components/tree/main/modules/guardduty/common/) - 
+
+
+
 
 [<img src="https://cloudposse.com/logo-300x69.svg" height="32" align="right"/>](https://cpco.io/homepage?utm_source=github&utm_medium=readme&utm_campaign=cloudposse-terraform-components/aws-macie&utm_content=)
+
