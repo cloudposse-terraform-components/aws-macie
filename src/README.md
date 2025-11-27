@@ -34,17 +34,61 @@ services, applications, and systems.
 
 ## Deployment Overview
 
-This component is complex in that it must be deployed multiple times with different variables set to configure the AWS
-Organization successfully.
+This component uses the **delegated administrator** deployment model, which requires a **3-step deployment process**.
+The component must be deployed multiple times with different variables to configure the AWS Organization.
+
+Macie follows the same deployment pattern as GuardDuty and Security Hub.
 
 In the examples below, we assume that the AWS Organization Management account is `root` and the AWS Organization
 Delegated Administrator account is `security`, both in the `core` tenant.
 
-### Deploy to Delegated Administrator Account
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         AWS Organization                                     │
+│                                                                              │
+│  ┌────────────────────────────────────────────────────────────────────────┐ │
+│  │  Organization Management Account (root)                                │ │
+│  │  STEP 2: Delegate Macie administration to security account             │ │
+│  │  - Creates: aws_macie2_organization_admin_account                      │ │
+│  │  - Requires: SuperAdmin permissions (privileged: true)                 │ │
+│  └────────────────────────────────────────────────────────────────────────┘ │
+│                              │                                              │
+│                              ▼ Delegation                                   │
+│  ┌────────────────────────────────────────────────────────────────────────┐ │
+│  │  Delegated Administrator Account (security)                            │ │
+│  │  STEP 1 (FIRST): Create Macie account (admin_delegated: false)         │ │
+│  │  - Creates: aws_macie2_account                                         │ │
+│  │                                                                        │ │
+│  │  STEP 3 (LAST): Configure org settings (admin_delegated: true)         │ │
+│  │  - Creates: awsutils_macie2_organization_settings                      │ │
+│  │  - Enables member accounts, configures finding publishing              │ │
+│  └────────────────────────────────────────────────────────────────────────┘ │
+│                              ▲                                              │
+│                              │ Findings                                     │
+│  ┌────────────────────────────────────────────────────────────────────────┐ │
+│  │  Member Accounts (all other accounts)                                  │ │
+│  │  - Automatically enabled by delegated administrator                    │ │
+│  │  - S3 buckets automatically inventoried and monitored                  │ │
+│  │  - Findings sent to security account                                   │ │
+│  └────────────────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Deployment Steps Summary
+
+| Step | Account  | Variable                 | Resources Created                       |
+|------|----------|--------------------------|-----------------------------------------|
+| 1    | Security | `admin_delegated: false` | `aws_macie2_account`                    |
+| 2    | Root     | `privileged: true`       | `aws_macie2_organization_admin_account` |
+| 3    | Security | `admin_delegated: true`  | `awsutils_macie2_organization_settings` |
+
+### Step 1: Deploy to Delegated Administrator Account (FIRST)
 
 First, the component is deployed to the
 [Delegated Administrator](https://docs.aws.amazon.com/macie/latest/user/accounts-mgmt-ao-integrate.html) account to
-configure the central Macie account∑.
+create the Macie account. This **must be done before** the root account delegates administration.
 
 ```yaml
 # core-ue1-security
@@ -58,18 +102,20 @@ components:
         delegated_administrator_account_name: core-security
         environment: ue1
         region: us-east-1
+        # Not yet delegated - creates Macie account only
+        admin_delegated: false
 ```
 
 ```bash
 atmos terraform apply macie/delegated-administrator -s core-ue1-security
 ```
 
-### Deploy to Organization Management (root) Account
+### Step 2: Deploy to Organization Management (root) Account
 
-Next, the component is deployed to the AWS Organization Management, a/k/a `root`, Account in order to set the AWS
-Organization Designated Administrator account.
+Next, the component is deployed to the AWS Organization Management account to delegate Macie administration
+to the security account.
 
-Note that you must `SuperAdmin` permissions as we are deploying to the AWS Organization Management account. Since we are
+Note that you need `SuperAdmin` permissions as we are deploying to the AWS Organization Management account. Since we are
 using the `SuperAdmin` user, it will already have access to the state bucket, so we set the `role_arn` of the backend
 config to null and set `var.privileged` to `true`.
 
@@ -77,12 +123,12 @@ config to null and set `var.privileged` to `true`.
 # core-ue1-root
 components:
   terraform:
-    guardduty/root:
+    macie/root:
       metadata:
         component: macie
-    backend:
-      s3:
-        role_arn: null
+      backend:
+        s3:
+          role_arn: null
       vars:
         enabled: true
         delegated_administrator_account_name: core-security
@@ -95,11 +141,10 @@ components:
 atmos terraform apply macie/root -s core-ue1-root
 ```
 
-### Deploy Organization Settings in Delegated Administrator Account
+### Step 3: Deploy Organization Settings in Delegated Administrator Account (LAST)
 
-Finally, the component is deployed to the Delegated Administrator Account again in order to create the organization-wide
-configuration for the AWS Organization, but with `var.admin_delegated` set to `true` to indicate that the delegation has
-already been performed from the Organization Management account.
+Finally, the component is deployed to the Delegated Administrator Account again to create the organization-wide
+configuration. Set `var.admin_delegated` to `true` to indicate that the delegation has been completed.
 
 ```yaml
 # core-ue1-security
@@ -111,14 +156,59 @@ components:
       vars:
         enabled: true
         delegated_administrator_account_name: core-security
-        environment: use1
+        environment: ue1
         region: us-east-1
         admin_delegated: true
 ```
 
 ```bash
-atmos terraform apply macie/org-settings/ue1 -s core-ue1-security
+atmos terraform apply macie/org-settings -s core-ue1-security
 ```
+
+### Multi-Region Deployment
+
+Macie is a **regional service**. Deploy to each region where you have S3 buckets to monitor:
+
+```bash
+# Deploy to us-east-1 (all 3 steps)
+atmos terraform apply macie/delegated-administrator -s core-ue1-security
+atmos terraform apply macie/root -s core-ue1-root
+atmos terraform apply macie/org-settings -s core-ue1-security
+
+# Deploy to us-west-2 (all 3 steps)
+atmos terraform apply macie/delegated-administrator -s core-uw2-security
+atmos terraform apply macie/root -s core-uw2-root
+atmos terraform apply macie/org-settings -s core-uw2-security
+```
+
+## Key Features
+
+- **Sensitive Data Discovery**: Automatically discovers PII, financial data, credentials, and other sensitive
+  information in S3 using machine learning and pattern matching
+- **S3 Bucket Inventory**: Provides comprehensive inventory of S3 buckets with security and access control evaluation
+- **Policy Findings**: Detects security issues like publicly accessible buckets, disabled encryption, external sharing
+- **Sensitive Data Findings**: Reports discovered sensitive data including location and data type
+- **Security Hub Integration**: Findings published to AWS Security Hub for centralized security management
+- **EventBridge Integration**: Findings published to EventBridge for automated remediation workflows
+- **Multi-account Coverage**: Monitors S3 data across all accounts in the AWS Organization
+
+## Finding Publishing Frequency
+
+The `finding_publishing_frequency` variable controls how often Macie publishes findings to Security Hub and EventBridge:
+
+| Value | Description |
+|-------|-------------|
+| `FIFTEEN_MINUTES` | Publish every 15 minutes (default, recommended) |
+| `ONE_HOUR` | Publish every hour |
+| `SIX_HOURS` | Publish every 6 hours |
+
+## Prerequisites
+
+Before deploying this component:
+
+1. **AWS Organizations** must be configured with the `macie.amazonaws.com` service access principal enabled
+2. **account-map** component must be deployed to identify security and root accounts
+3. **Security Hub** (recommended) should be deployed to receive findings
 
 <!-- prettier-ignore-start -->
 <!-- prettier-ignore-end -->
@@ -163,7 +253,7 @@ atmos terraform apply macie/org-settings/ue1 -s core-ue1-security
 |------|-------------|------|---------|:--------:|
 | <a name="input_account_map_tenant"></a> [account\_map\_tenant](#input\_account\_map\_tenant) | The tenant where the `account_map` component required by remote-state is deployed | `string` | `"core"` | no |
 | <a name="input_additional_tag_map"></a> [additional\_tag\_map](#input\_additional\_tag\_map) | Additional key-value pairs to add to each map in `tags_as_list_of_maps`. Not added to `tags` or `id`.<br/>This is for some rare cases where resources want additional configuration of tags<br/>and therefore take a list of maps with tag key, value, and additional configuration. | `map(string)` | `{}` | no |
-| <a name="input_admin_delegated"></a> [admin\_delegated](#input\_admin\_delegated) | A flag to indicate if the AWS Organization-wide settings should be created. This can only be done after the GuardDuty<br/>  Administrator account has already been delegated from the AWS Org Management account (usually 'root'). See the<br/>  Deployment section of the README for more information. | `bool` | `false` | no |
+| <a name="input_admin_delegated"></a> [admin\_delegated](#input\_admin\_delegated) | A flag to indicate if the AWS Organization-wide settings should be created. This can only be done after the Macie<br/>  Administrator account has already been delegated from the AWS Org Management account (usually 'root'). See the<br/>  Deployment section of the README for more information. | `bool` | `false` | no |
 | <a name="input_attributes"></a> [attributes](#input\_attributes) | ID element. Additional attributes (e.g. `workers` or `cluster`) to add to `id`,<br/>in the order they appear in the list. New attributes are appended to the<br/>end of the list. The elements of the list are joined by the `delimiter`<br/>and treated as a single ID element. | `list(string)` | `[]` | no |
 | <a name="input_context"></a> [context](#input\_context) | Single object for setting entire context at once.<br/>See description of individual variables for details.<br/>Leave string and numeric variables as `null` to use default value.<br/>Individual variable settings (non-null) override settings in context object,<br/>except for attributes, tags, and additional\_tag\_map, which are merged. | `any` | <pre>{<br/>  "additional_tag_map": {},<br/>  "attributes": [],<br/>  "delimiter": null,<br/>  "descriptor_formats": {},<br/>  "enabled": true,<br/>  "environment": null,<br/>  "id_length_limit": null,<br/>  "label_key_case": null,<br/>  "label_order": [],<br/>  "label_value_case": null,<br/>  "labels_as_tags": [<br/>    "unset"<br/>  ],<br/>  "name": null,<br/>  "namespace": null,<br/>  "regex_replace_chars": null,<br/>  "stage": null,<br/>  "tags": {},<br/>  "tenant": null<br/>}</pre> | no |
 | <a name="input_delegated_administrator_account_name"></a> [delegated\_administrator\_account\_name](#input\_delegated\_administrator\_account\_name) | The name of the account that is the AWS Organization Delegated Administrator account | `string` | `"core-security"` | no |
@@ -171,7 +261,7 @@ atmos terraform apply macie/org-settings/ue1 -s core-ue1-security
 | <a name="input_descriptor_formats"></a> [descriptor\_formats](#input\_descriptor\_formats) | Describe additional descriptors to be output in the `descriptors` output map.<br/>Map of maps. Keys are names of descriptors. Values are maps of the form<br/>`{<br/>  format = string<br/>  labels = list(string)<br/>}`<br/>(Type is `any` so the map values can later be enhanced to provide additional options.)<br/>`format` is a Terraform format string to be passed to the `format()` function.<br/>`labels` is a list of labels, in order, to pass to `format()` function.<br/>Label values will be normalized before being passed to `format()` so they will be<br/>identical to how they appear in `id`.<br/>Default is `{}` (`descriptors` output will be empty). | `any` | `{}` | no |
 | <a name="input_enabled"></a> [enabled](#input\_enabled) | Set to false to prevent the module from creating any resources | `bool` | `null` | no |
 | <a name="input_environment"></a> [environment](#input\_environment) | ID element. Usually used for region e.g. 'uw2', 'us-west-2', OR role 'prod', 'staging', 'dev', 'UAT' | `string` | `null` | no |
-| <a name="input_finding_publishing_frequency"></a> [finding\_publishing\_frequency](#input\_finding\_publishing\_frequency) | Specifies how often to publish updates to policy findings for the account. This includes publishing updates to AWS<br/>Security Hub and Amazon EventBridge (formerly called Amazon CloudWatch Events). For more information, see:<br/><br/>https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_findings_cloudwatch.html#guardduty_findings_cloudwatch_notification_frequency | `string` | `"FIFTEEN_MINUTES"` | no |
+| <a name="input_finding_publishing_frequency"></a> [finding\_publishing\_frequency](#input\_finding\_publishing\_frequency) | Specifies how often to publish updates to policy findings for the account. This includes publishing updates to AWS<br/>Security Hub and Amazon EventBridge (formerly called Amazon CloudWatch Events). Valid values: FIFTEEN\_MINUTES,<br/>ONE\_HOUR, or SIX\_HOURS. For more information, see: | `string` | `"FIFTEEN_MINUTES"` | no |
 | <a name="input_global_environment"></a> [global\_environment](#input\_global\_environment) | Global environment name | `string` | `"gbl"` | no |
 | <a name="input_id_length_limit"></a> [id\_length\_limit](#input\_id\_length\_limit) | Limit `id` to this many characters (minimum 6).<br/>Set to `0` for unlimited length.<br/>Set to `null` for keep the existing setting, which defaults to `0`.<br/>Does not affect `id_full`. | `number` | `null` | no |
 | <a name="input_label_key_case"></a> [label\_key\_case](#input\_label\_key\_case) | Controls the letter case of the `tags` keys (label names) for tags generated by this module.<br/>Does not affect keys of tags passed in via the `tags` input.<br/>Possible values: `lower`, `title`, `upper`.<br/>Default value: `title`. | `string` | `null` | no |
@@ -205,9 +295,23 @@ atmos terraform apply macie/org-settings/ue1 -s core-ue1-security
 ## References
 
 
-- [AWS GuardDuty Documentation](https://aws.amazon.com/guardduty/) - 
+- [AWS Macie Documentation](https://docs.aws.amazon.com/macie/) - Official AWS Macie service documentation
 
-- [Cloud Posse's upstream component](https://github.com/cloudposse/terraform-aws-components/tree/main/modules/guardduty/common/) - 
+- [AWS Macie User Guide](https://docs.aws.amazon.com/macie/latest/user/what-is-macie.html) - Comprehensive guide for setting up and using Macie
+
+- [Setting Up Macie](https://docs.aws.amazon.com/macie/latest/user/getting-started.html) - Getting started with AWS Macie
+
+- [Macie Discovery Jobs](https://docs.aws.amazon.com/macie/latest/user/discovery-jobs.html) - Creating sensitive data discovery jobs
+
+- [Macie Findings](https://docs.aws.amazon.com/macie/latest/user/findings.html) - Understanding Macie findings types and formats
+
+- [Custom Data Identifiers](https://docs.aws.amazon.com/macie/latest/user/custom-data-identifiers.html) - Creating custom patterns for sensitive data detection
+
+- [Macie Pricing](https://aws.amazon.com/macie/pricing/) - AWS Macie pricing information
+
+- [Terraform aws_macie2_account](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/macie2_account) - Terraform resource documentation for Macie account
+
+- [Terraform aws_macie2_organization_admin_account](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/macie2_organization_admin_account) - Terraform resource documentation for Macie organization admin
 
 
 

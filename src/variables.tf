@@ -8,7 +8,7 @@ variable "admin_delegated" {
   type        = bool
   default     = false
   description = <<DOC
-  A flag to indicate if the AWS Organization-wide settings should be created. This can only be done after the GuardDuty
+  A flag to indicate if the AWS Organization-wide settings should be created. This can only be done after the Macie
   Administrator account has already been delegated from the AWS Org Management account (usually 'root'). See the
   Deployment section of the README for more information.
   DOC
@@ -26,9 +26,9 @@ variable "finding_publishing_frequency" {
   nullable    = false
   description = <<-DOC
   Specifies how often to publish updates to policy findings for the account. This includes publishing updates to AWS
-  Security Hub and Amazon EventBridge (formerly called Amazon CloudWatch Events). For more information, see:
+  Security Hub and Amazon EventBridge (formerly called Amazon CloudWatch Events). Valid values: FIFTEEN_MINUTES,
+  ONE_HOUR, or SIX_HOURS. For more information, see:
 
-  https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_findings_cloudwatch.html#guardduty_findings_cloudwatch_notification_frequency
   DOC
 }
 
