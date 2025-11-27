@@ -78,11 +78,11 @@ Delegated Administrator account is `security`, both in the `core` tenant.
 
 ### Deployment Steps Summary
 
-| Step | Account  | Variable                 | Resources Created                       |
-|------|----------|--------------------------|-----------------------------------------|
-| 1    | Security | `admin_delegated: false` | `aws_macie2_account`                    |
-| 2    | Root     | `privileged: true`       | `aws_macie2_organization_admin_account` |
-| 3    | Security | `admin_delegated: true`  | `awsutils_macie2_organization_settings` |
+| Step | Account | Variable | Resources Created |
+|------|---------|----------|-------------------|
+| 1 | Security | `admin_delegated: false` | `aws_macie2_account` |
+| 2 | Root | `privileged: true` | `aws_macie2_organization_admin_account` |
+| 3 | Security | `admin_delegated: true` | `awsutils_macie2_organization_settings` |
 
 ### Step 1: Deploy to Delegated Administrator Account (FIRST)
 
