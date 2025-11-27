@@ -44,7 +44,7 @@ Delegated Administrator account is `security`, both in the `core` tenant.
 
 ### Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                         AWS Organization                                     │
 │                                                                              │
