@@ -24,6 +24,14 @@ description: |-
   statistics, and other data by using the Amazon Macie console or the Amazon Macie API. You can also leverage Macie
   integration with Amazon EventBridge and AWS Security Hub to monitor, process, and remediate findings by using other
   services, applications, and systems.
+
+  ## Component Features
+
+  - **Delegated Administrator Model**: Uses AWS Organizations delegated administrator pattern for centralized management
+  - **Multi-Region Deployment**: Supports deployment across all AWS regions
+  - **Account Verification**: Optional safety check that validates Terraform is running in the correct AWS account
+  - **Flexible Account Map**: Supports both remote-state account-map lookups (default) and static account map variables
+
 usage: |-
   **Stack Level**: Regional
 
