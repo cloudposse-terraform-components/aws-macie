@@ -94,9 +94,9 @@ create the Macie account. This **must be done before** the root account delegate
 # core-ue1-security
 components:
   terraform:
-    macie/delegated-administrator:
+    aws-macie/delegated-administrator:
       metadata:
-        component: macie
+        component: aws-macie
       vars:
         enabled: true
         delegated_administrator_account_name: core-security
@@ -107,7 +107,7 @@ components:
 ```
 
 ```bash
-atmos terraform apply macie/delegated-administrator -s core-ue1-security
+atmos terraform apply aws-macie/delegated-administrator -s core-ue1-security
 ```
 
 ### Step 2: Deploy to Organization Management (root) Account
@@ -123,9 +123,9 @@ config to null and set `var.privileged` to `true`.
 # core-ue1-root
 components:
   terraform:
-    macie/root:
+    aws-macie/root:
       metadata:
-        component: macie
+        component: aws-macie
       backend:
         s3:
           role_arn: null
@@ -138,7 +138,7 @@ components:
 ```
 
 ```bash
-atmos terraform apply macie/root -s core-ue1-root
+atmos terraform apply aws-macie/root -s core-ue1-root
 ```
 
 ### Step 3: Deploy Organization Settings in Delegated Administrator Account (LAST)
@@ -150,9 +150,9 @@ configuration. Set `var.admin_delegated` to `true` to indicate that the delegati
 # core-ue1-security
 components:
   terraform:
-    macie/org-settings:
+    aws-macie/org-settings:
       metadata:
-        component: macie
+        component: aws-macie
       vars:
         enabled: true
         delegated_administrator_account_name: core-security
@@ -162,7 +162,7 @@ components:
 ```
 
 ```bash
-atmos terraform apply macie/org-settings -s core-ue1-security
+atmos terraform apply aws-macie/org-settings -s core-ue1-security
 ```
 
 ### Multi-Region Deployment
@@ -171,14 +171,14 @@ Macie is a **regional service**. Deploy to each region where you have S3 buckets
 
 ```bash
 # Deploy to us-east-1 (all 3 steps)
-atmos terraform apply macie/delegated-administrator -s core-ue1-security
-atmos terraform apply macie/root -s core-ue1-root
-atmos terraform apply macie/org-settings -s core-ue1-security
+atmos terraform apply aws-macie/delegated-administrator -s core-ue1-security
+atmos terraform apply aws-macie/root -s core-ue1-root
+atmos terraform apply aws-macie/org-settings -s core-ue1-security
 
 # Deploy to us-west-2 (all 3 steps)
-atmos terraform apply macie/delegated-administrator -s core-uw2-security
-atmos terraform apply macie/root -s core-uw2-root
-atmos terraform apply macie/org-settings -s core-uw2-security
+atmos terraform apply aws-macie/delegated-administrator -s core-uw2-security
+atmos terraform apply aws-macie/root -s core-uw2-root
+atmos terraform apply aws-macie/org-settings -s core-uw2-security
 ```
 
 ## Key Features
