@@ -52,6 +52,13 @@ statistics, and other data by using the Amazon Macie console or the Amazon Macie
 integration with Amazon EventBridge and AWS Security Hub to monitor, process, and remediate findings by using other
 services, applications, and systems.
 
+## Component Features
+
+- **Delegated Administrator Model**: Uses AWS Organizations delegated administrator pattern for centralized management
+- **Multi-Region Deployment**: Supports deployment across all AWS regions
+- **Account Verification**: Optional safety check that validates Terraform is running in the correct AWS account
+- **Flexible Account Map**: Supports both remote-state account-map lookups (default) and static account map variables
+
 
 > [!TIP]
 > #### 👽 Use Atmos with Terraform
@@ -134,9 +141,9 @@ create the Macie account. This **must be done before** the root account delegate
 # core-ue1-security
 components:
   terraform:
-    macie/delegated-administrator:
+    aws-macie/delegated-administrator:
       metadata:
-        component: macie
+        component: aws-macie
       vars:
         enabled: true
         delegated_administrator_account_name: core-security
@@ -147,7 +154,7 @@ components:
 ```
 
 ```bash
-atmos terraform apply macie/delegated-administrator -s core-ue1-security
+atmos terraform apply aws-macie/delegated-administrator -s core-ue1-security
 ```
 
 ### Step 2: Deploy to Organization Management (root) Account
@@ -163,9 +170,9 @@ config to null and set `var.privileged` to `true`.
 # core-ue1-root
 components:
   terraform:
-    macie/root:
+    aws-macie/root:
       metadata:
-        component: macie
+        component: aws-macie
       backend:
         s3:
           role_arn: null
@@ -178,7 +185,7 @@ components:
 ```
 
 ```bash
-atmos terraform apply macie/root -s core-ue1-root
+atmos terraform apply aws-macie/root -s core-ue1-root
 ```
 
 ### Step 3: Deploy Organization Settings in Delegated Administrator Account (LAST)
@@ -190,9 +197,9 @@ configuration. Set `var.admin_delegated` to `true` to indicate that the delegati
 # core-ue1-security
 components:
   terraform:
-    macie/org-settings:
+    aws-macie/org-settings:
       metadata:
-        component: macie
+        component: aws-macie
       vars:
         enabled: true
         delegated_administrator_account_name: core-security
@@ -202,7 +209,7 @@ components:
 ```
 
 ```bash
-atmos terraform apply macie/org-settings -s core-ue1-security
+atmos terraform apply aws-macie/org-settings -s core-ue1-security
 ```
 
 ### Multi-Region Deployment
@@ -211,14 +218,14 @@ Macie is a **regional service**. Deploy to each region where you have S3 buckets
 
 ```bash
 # Deploy to us-east-1 (all 3 steps)
-atmos terraform apply macie/delegated-administrator -s core-ue1-security
-atmos terraform apply macie/root -s core-ue1-root
-atmos terraform apply macie/org-settings -s core-ue1-security
+atmos terraform apply aws-macie/delegated-administrator -s core-ue1-security
+atmos terraform apply aws-macie/root -s core-ue1-root
+atmos terraform apply aws-macie/org-settings -s core-ue1-security
 
 # Deploy to us-west-2 (all 3 steps)
-atmos terraform apply macie/delegated-administrator -s core-uw2-security
-atmos terraform apply macie/root -s core-uw2-root
-atmos terraform apply macie/org-settings -s core-uw2-security
+atmos terraform apply aws-macie/delegated-administrator -s core-uw2-security
+atmos terraform apply aws-macie/root -s core-uw2-root
+atmos terraform apply aws-macie/org-settings -s core-uw2-security
 ```
 
 ## Key Features
@@ -272,15 +279,16 @@ Before deploying this component:
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.0.0 |
-| <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 5.0, < 6.0.0 |
-| <a name="requirement_awsutils"></a> [awsutils](#requirement\_awsutils) | >= 0.17.0, < 6.0.0 |
+| <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 5.0.0 |
+| <a name="requirement_awsutils"></a> [awsutils](#requirement\_awsutils) | >= 0.17.0 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_aws"></a> [aws](#provider\_aws) | >= 5.0, < 6.0.0 |
-| <a name="provider_awsutils"></a> [awsutils](#provider\_awsutils) | >= 0.17.0, < 6.0.0 |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | >= 5.0.0 |
+| <a name="provider_awsutils"></a> [awsutils](#provider\_awsutils) | >= 0.17.0 |
+| <a name="provider_terraform"></a> [terraform](#provider\_terraform) | n/a |
 
 ## Modules
 
@@ -297,13 +305,18 @@ Before deploying this component:
 | [aws_macie2_account.this](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/macie2_account) | resource |
 | [aws_macie2_organization_admin_account.this](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/macie2_organization_admin_account) | resource |
 | [awsutils_macie2_organization_settings.this](https://registry.terraform.io/providers/cloudposse/awsutils/latest/docs/resources/macie2_organization_settings) | resource |
+| [terraform_data.account_verification](https://registry.terraform.io/providers/hashicorp/terraform/latest/docs/resources/data) | resource |
 | [aws_caller_identity.this](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/caller_identity) | data source |
 
 ## Inputs
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
+| <a name="input_account_map"></a> [account\_map](#input\_account\_map) | Static account map configuration. Only used when `account_map_enabled` is `false`.<br/>Map keys use `tenant-stage` format (e.g., `core-security`, `core-audit`, `plat-prod`). | <pre>object({<br/>    full_account_map              = map(string)<br/>    audit_account_account_name    = optional(string, "")<br/>    root_account_account_name     = optional(string, "")<br/>    identity_account_account_name = optional(string, "")<br/>    aws_partition                 = optional(string, "aws")<br/>    iam_role_arn_templates        = optional(map(string), {})<br/>  })</pre> | <pre>{<br/>  "audit_account_account_name": "",<br/>  "aws_partition": "aws",<br/>  "full_account_map": {},<br/>  "iam_role_arn_templates": {},<br/>  "identity_account_account_name": "",<br/>  "root_account_account_name": ""<br/>}</pre> | no |
+| <a name="input_account_map_component_name"></a> [account\_map\_component\_name](#input\_account\_map\_component\_name) | The name of the account-map component | `string` | `"account-map"` | no |
+| <a name="input_account_map_enabled"></a> [account\_map\_enabled](#input\_account\_map\_enabled) | Enable the account map component. When true (default), the component fetches account mappings from the<br/>`account-map` component via remote state. When false, the component uses the static `account_map` variable instead. | `bool` | `true` | no |
 | <a name="input_account_map_tenant"></a> [account\_map\_tenant](#input\_account\_map\_tenant) | The tenant where the `account_map` component required by remote-state is deployed | `string` | `"core"` | no |
+| <a name="input_account_verification_enabled"></a> [account\_verification\_enabled](#input\_account\_verification\_enabled) | Enable account verification. When true (default), the component verifies that Terraform is executing<br/>in the correct AWS account by comparing the current account ID against the expected account from the<br/>account\_map based on the component's tenant-stage context. | `bool` | `true` | no |
 | <a name="input_additional_tag_map"></a> [additional\_tag\_map](#input\_additional\_tag\_map) | Additional key-value pairs to add to each map in `tags_as_list_of_maps`. Not added to `tags` or `id`.<br/>This is for some rare cases where resources want additional configuration of tags<br/>and therefore take a list of maps with tag key, value, and additional configuration. | `map(string)` | `{}` | no |
 | <a name="input_admin_delegated"></a> [admin\_delegated](#input\_admin\_delegated) | A flag to indicate if the AWS Organization-wide settings should be created. This can only be done after the Macie<br/>  Administrator account has already been delegated from the AWS Org Management account (usually 'root'). See the<br/>  Deployment section of the README for more information. | `bool` | `false` | no |
 | <a name="input_attributes"></a> [attributes](#input\_attributes) | ID element. Additional attributes (e.g. `workers` or `cluster`) to add to `id`,<br/>in the order they appear in the list. New attributes are appended to the<br/>end of the list. The elements of the list are joined by the `delimiter`<br/>and treated as a single ID element. | `list(string)` | `[]` | no |
@@ -316,6 +329,8 @@ Before deploying this component:
 | <a name="input_finding_publishing_frequency"></a> [finding\_publishing\_frequency](#input\_finding\_publishing\_frequency) | Specifies how often to publish updates to policy findings for the account. This includes publishing updates to AWS<br/>Security Hub and Amazon EventBridge (formerly called Amazon CloudWatch Events). Valid values: FIFTEEN\_MINUTES,<br/>ONE\_HOUR, or SIX\_HOURS. For more information, see: | `string` | `"FIFTEEN_MINUTES"` | no |
 | <a name="input_global_environment"></a> [global\_environment](#input\_global\_environment) | Global environment name | `string` | `"gbl"` | no |
 | <a name="input_id_length_limit"></a> [id\_length\_limit](#input\_id\_length\_limit) | Limit `id` to this many characters (minimum 6).<br/>Set to `0` for unlimited length.<br/>Set to `null` for keep the existing setting, which defaults to `0`.<br/>Does not affect `id_full`. | `number` | `null` | no |
+| <a name="input_import_profile_name"></a> [import\_profile\_name](#input\_import\_profile\_name) | AWS Profile name to use when importing a resource | `string` | `null` | no |
+| <a name="input_import_role_arn"></a> [import\_role\_arn](#input\_import\_role\_arn) | IAM Role ARN to use when importing a resource | `string` | `null` | no |
 | <a name="input_label_key_case"></a> [label\_key\_case](#input\_label\_key\_case) | Controls the letter case of the `tags` keys (label names) for tags generated by this module.<br/>Does not affect keys of tags passed in via the `tags` input.<br/>Possible values: `lower`, `title`, `upper`.<br/>Default value: `title`. | `string` | `null` | no |
 | <a name="input_label_order"></a> [label\_order](#input\_label\_order) | The order in which the labels (ID elements) appear in the `id`.<br/>Defaults to ["namespace", "environment", "stage", "name", "attributes"].<br/>You can omit any of the 6 labels ("tenant" is the 6th), but at least one must be present. | `list(string)` | `null` | no |
 | <a name="input_label_value_case"></a> [label\_value\_case](#input\_label\_value\_case) | Controls the letter case of ID elements (labels) as included in `id`,<br/>set as tag values, and output by this module individually.<br/>Does not affect values of tags passed in via the `tags` input.<br/>Possible values: `lower`, `title`, `upper` and `none` (no transformation).<br/>Set this to `title` and set `delimiter` to `""` to yield Pascal Case IDs.<br/>Default value: `lower`. | `string` | `null` | no |
