@@ -138,7 +138,7 @@ First, the component is deployed to the
 create the Macie account. This **must be done before** the root account delegates administration.
 
 ```yaml
-# core-ue1-security
+# core-use1-security
 components:
   terraform:
     aws-macie/delegated-administrator:
@@ -147,14 +147,12 @@ components:
       vars:
         enabled: true
         delegated_administrator_account_name: core-security
-        environment: ue1
-        region: us-east-1
         # Not yet delegated - creates Macie account only
         admin_delegated: false
 ```
 
 ```bash
-atmos terraform apply aws-macie/delegated-administrator -s core-ue1-security
+atmos terraform apply aws-macie/delegated-administrator -s core-use1-security
 ```
 
 ### Step 2: Deploy to Organization Management (root) Account
@@ -167,25 +165,20 @@ using the `SuperAdmin` user, it will already have access to the state bucket, so
 config to null and set `var.privileged` to `true`.
 
 ```yaml
-# core-ue1-root
+# core-use1-root
 components:
   terraform:
     aws-macie/root:
       metadata:
         component: aws-macie
-      backend:
-        s3:
-          role_arn: null
       vars:
         enabled: true
         delegated_administrator_account_name: core-security
-        environment: ue1
-        region: us-east-1
         privileged: true
 ```
 
 ```bash
-atmos terraform apply aws-macie/root -s core-ue1-root
+atmos terraform apply aws-macie/root -s core-use1-root
 ```
 
 ### Step 3: Deploy Organization Settings in Delegated Administrator Account (LAST)
@@ -194,7 +187,7 @@ Finally, the component is deployed to the Delegated Administrator Account again 
 configuration. Set `var.admin_delegated` to `true` to indicate that the delegation has been completed.
 
 ```yaml
-# core-ue1-security
+# core-use1-security
 components:
   terraform:
     aws-macie/org-settings:
@@ -203,13 +196,11 @@ components:
       vars:
         enabled: true
         delegated_administrator_account_name: core-security
-        environment: ue1
-        region: us-east-1
         admin_delegated: true
 ```
 
 ```bash
-atmos terraform apply aws-macie/org-settings -s core-ue1-security
+atmos terraform apply aws-macie/org-settings -s core-use1-security
 ```
 
 ### Multi-Region Deployment
@@ -218,14 +209,14 @@ Macie is a **regional service**. Deploy to each region where you have S3 buckets
 
 ```bash
 # Deploy to us-east-1 (all 3 steps)
-atmos terraform apply aws-macie/delegated-administrator -s core-ue1-security
-atmos terraform apply aws-macie/root -s core-ue1-root
-atmos terraform apply aws-macie/org-settings -s core-ue1-security
+atmos terraform apply aws-macie/delegated-administrator -s core-use1-security
+atmos terraform apply aws-macie/root -s core-use1-root
+atmos terraform apply aws-macie/org-settings -s core-use1-security
 
 # Deploy to us-west-2 (all 3 steps)
-atmos terraform apply aws-macie/delegated-administrator -s core-uw2-security
-atmos terraform apply aws-macie/root -s core-uw2-root
-atmos terraform apply aws-macie/org-settings -s core-uw2-security
+atmos terraform apply aws-macie/delegated-administrator -s core-usw2-security
+atmos terraform apply aws-macie/root -s core-usw2-root
+atmos terraform apply aws-macie/org-settings -s core-usw2-security
 ```
 
 ## Key Features
