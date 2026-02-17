@@ -30,7 +30,7 @@ description: |-
   - **Delegated Administrator Model**: Uses AWS Organizations delegated administrator pattern for centralized management
   - **Multi-Region Deployment**: Supports deployment across all AWS regions
   - **Account Verification**: Optional safety check that validates Terraform is running in the correct AWS account
-  - **Flexible Account Map**: Supports both remote-state account-map lookups (default) and static account map variables
+  - **Flexible Account Map**: Supports both remote-state account-map lookups and static account map variables (default)
 
 usage: |-
   **Stack Level**: Regional
