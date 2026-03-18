@@ -205,7 +205,7 @@ The `finding_publishing_frequency` variable controls how often Macie publishes f
 Before deploying this component:
 
 1. **AWS Organizations** must be configured with the `macie.amazonaws.com` service access principal enabled
-2. **account-map** component must be deployed to identify security and root accounts
+2. **Account map**: Either deploy the **account-map** component (when `account_map_enabled = true`) or provide a static `account_map` variable (default) to identify security and root accounts
 3. **Security Hub** (recommended) should be deployed to receive findings
 
 <!-- prettier-ignore-start -->
