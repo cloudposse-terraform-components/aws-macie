@@ -24,6 +24,14 @@ description: |-
   statistics, and other data by using the Amazon Macie console or the Amazon Macie API. You can also leverage Macie
   integration with Amazon EventBridge and AWS Security Hub to monitor, process, and remediate findings by using other
   services, applications, and systems.
+
+  ## Component Features
+
+  - **Delegated Administrator Model**: Uses AWS Organizations delegated administrator pattern for centralized management
+  - **Multi-Region Deployment**: Supports deployment across all AWS regions
+  - **Account Verification**: Optional safety check that validates Terraform is running in the correct AWS account
+  - **Flexible Account Map**: Supports both remote-state account-map lookups and static account map variables (default)
+
 usage: |-
   **Stack Level**: Regional
 
@@ -86,23 +94,21 @@ usage: |-
   create the Macie account. This **must be done before** the root account delegates administration.
 
   ```yaml
-  # core-ue1-security
+  # core-use1-security
   components:
     terraform:
-      macie/delegated-administrator:
+      aws-macie/delegated-administrator:
         metadata:
-          component: macie
+          component: aws-macie
         vars:
           enabled: true
           delegated_administrator_account_name: core-security
-          environment: ue1
-          region: us-east-1
           # Not yet delegated - creates Macie account only
           admin_delegated: false
   ```
 
   ```bash
-  atmos terraform apply macie/delegated-administrator -s core-ue1-security
+  atmos terraform apply aws-macie/delegated-administrator -s core-use1-security
   ```
 
   ### Step 2: Deploy to Organization Management (root) Account
@@ -115,25 +121,20 @@ usage: |-
   config to null and set `var.privileged` to `true`.
 
   ```yaml
-  # core-ue1-root
+  # core-use1-root
   components:
     terraform:
-      macie/root:
+      aws-macie/root:
         metadata:
-          component: macie
-        backend:
-          s3:
-            role_arn: null
+          component: aws-macie
         vars:
           enabled: true
           delegated_administrator_account_name: core-security
-          environment: ue1
-          region: us-east-1
           privileged: true
   ```
 
   ```bash
-  atmos terraform apply macie/root -s core-ue1-root
+  atmos terraform apply aws-macie/root -s core-use1-root
   ```
 
   ### Step 3: Deploy Organization Settings in Delegated Administrator Account (LAST)
@@ -142,22 +143,20 @@ usage: |-
   configuration. Set `var.admin_delegated` to `true` to indicate that the delegation has been completed.
 
   ```yaml
-  # core-ue1-security
+  # core-use1-security
   components:
     terraform:
-      macie/org-settings:
+      aws-macie/org-settings:
         metadata:
-          component: macie
+          component: aws-macie
         vars:
           enabled: true
           delegated_administrator_account_name: core-security
-          environment: ue1
-          region: us-east-1
           admin_delegated: true
   ```
 
   ```bash
-  atmos terraform apply macie/org-settings -s core-ue1-security
+  atmos terraform apply aws-macie/org-settings -s core-use1-security
   ```
 
   ### Multi-Region Deployment
@@ -166,14 +165,14 @@ usage: |-
 
   ```bash
   # Deploy to us-east-1 (all 3 steps)
-  atmos terraform apply macie/delegated-administrator -s core-ue1-security
-  atmos terraform apply macie/root -s core-ue1-root
-  atmos terraform apply macie/org-settings -s core-ue1-security
+  atmos terraform apply aws-macie/delegated-administrator -s core-use1-security
+  atmos terraform apply aws-macie/root -s core-use1-root
+  atmos terraform apply aws-macie/org-settings -s core-use1-security
 
   # Deploy to us-west-2 (all 3 steps)
-  atmos terraform apply macie/delegated-administrator -s core-uw2-security
-  atmos terraform apply macie/root -s core-uw2-root
-  atmos terraform apply macie/org-settings -s core-uw2-security
+  atmos terraform apply aws-macie/delegated-administrator -s core-usw2-security
+  atmos terraform apply aws-macie/root -s core-usw2-root
+  atmos terraform apply aws-macie/org-settings -s core-usw2-security
   ```
 
   ## Key Features
@@ -202,7 +201,7 @@ usage: |-
   Before deploying this component:
 
   1. **AWS Organizations** must be configured with the `macie.amazonaws.com` service access principal enabled
-  2. **account-map** component must be deployed to identify security and root accounts
+  2. **Account map**: Either deploy the **account-map** component (when `account_map_enabled = true`) or provide a static `account_map` variable (default) to identify security and root accounts
   3. **Security Hub** (recommended) should be deployed to receive findings
 
   <!-- prettier-ignore-start -->
